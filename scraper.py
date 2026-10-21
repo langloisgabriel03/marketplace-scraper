@@ -246,7 +246,7 @@ class Scraper:
             geolocation={"latitude": self.args.lat, "longitude": self.args.lon},
             permissions=["geolocation"],
             # Should match the browser the cookies came from (FB_USER_AGENT)
-            user_agent=os.getenv("FB_USER_AGENT") or (
+            user_agent=os.getenv("FB_USER_AGENT", "").strip().strip("\"'") or (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                 "(KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
             ),
