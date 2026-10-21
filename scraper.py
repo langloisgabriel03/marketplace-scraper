@@ -227,7 +227,7 @@ def _post(url: str, **kwargs) -> None:
 # --------------------------------------------------------------------------- #
 
 class LoginRequired(Exception):
-    """Facebook redirected the search to its login page."""
+    """Facebook redirected the search to its login or security-checkpoint page."""
 
 
 class Scraper:
@@ -305,7 +305,7 @@ class Scraper:
             (debug / "search.html").write_text(page.content())
             log.warning("No listings found. Page title: %r, URL: %s (see debug/)",
                         page.title(), page.url)
-            if "/login" in page.url:
+            if "/login" in page.url or "/checkpoint" in page.url:
                 page.close()
                 raise LoginRequired(page.url)
 
@@ -406,11 +406,12 @@ def run_once(args, pattern: re.Pattern) -> None:
         try:
             results = scraper.search()
         except LoginRequired:
-            log.error("Facebook asked to log in; add or refresh FB cookies")
+            log.error("Facebook asked to log in or verify the account")
             if not login_flag.exists():
                 send("Marketplace watcher: Facebook login needed",
-                     "Facebook is showing a login page instead of results. "
-                     "Add or refresh your Facebook cookies (FB_COOKIES_JSON).")
+                     "Facebook is showing a login or security check page instead of results. "
+                     "Open Facebook, complete any security check, then refresh "
+                     "your cookies (FB_COOKIES_JSON).")
                 login_flag.parent.mkdir(parents=True, exist_ok=True)
                 login_flag.touch()
             return
