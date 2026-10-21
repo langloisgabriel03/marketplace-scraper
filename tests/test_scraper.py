@@ -67,3 +67,19 @@ def test_seen_roundtrip(tmp_path):
     assert scraper.load_seen(path) is None
     scraper.save_seen(path, {"3", "1", "2"})
     assert scraper.load_seen(path) == {"1", "2", "3"}
+
+
+def test_login_wall_alerts_once(tmp_path, monkeypatch):
+    class Blocked:
+        def __init__(self, args): pass
+        def __enter__(self): return self
+        def __exit__(self, *exc): pass
+        def search(self): raise scraper.LoginRequired("https://www.facebook.com/login")
+
+    sent = []
+    monkeypatch.setattr(scraper, "Scraper", Blocked)
+    monkeypatch.setattr(scraper, "send", lambda title, body, click="": sent.append(title))
+    args = scraper.parse_args(["--state", str(tmp_path / "seen.json")])
+    scraper.run_once(args, P)
+    scraper.run_once(args, P)
+    assert len(sent) == 1 and "login" in sent[0]

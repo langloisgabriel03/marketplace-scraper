@@ -226,6 +226,10 @@ def _post(url: str, **kwargs) -> None:
 # Scraping (Playwright)
 # --------------------------------------------------------------------------- #
 
+class LoginRequired(Exception):
+    """Facebook redirected the search to its login page."""
+
+
 class Scraper:
     def __init__(self, args):
         self.args = args
@@ -301,6 +305,9 @@ class Scraper:
             (debug / "search.html").write_text(page.content())
             log.warning("No listings found. Page title: %r, URL: %s (see debug/)",
                         page.title(), page.url)
+            if "/login" in page.url:
+                page.close()
+                raise LoginRequired(page.url)
 
         page.close()
         log.info("Search returned %d listings", len(found))
@@ -375,11 +382,24 @@ def _load_cookies(path: str | None):
 def run_once(args, pattern: re.Pattern) -> None:
     state = Path(args.state)
     seen = load_seen(state)
-    first_run = seen is None
+    # An empty state means no search has worked yet (e.g. only login walls so far)
+    first_run = not seen
     seen = seen or set()
+    login_flag = state.parent / "login_alert_sent"
 
     with Scraper(args) as scraper:
-        results = scraper.search()
+        try:
+            results = scraper.search()
+        except LoginRequired:
+            log.error("Facebook asked to log in; add or refresh FB cookies")
+            if not login_flag.exists():
+                send("Marketplace watcher: Facebook login needed",
+                     "Facebook is showing a login page instead of results. "
+                     "Add or refresh your Facebook cookies (FB_COOKIES_JSON).")
+                login_flag.parent.mkdir(parents=True, exist_ok=True)
+                login_flag.touch()
+            return
+        login_flag.unlink(missing_ok=True)
         new = [l for lid, l in results.items() if lid not in seen]
         log.info("%d new listings to check", len(new))
 
