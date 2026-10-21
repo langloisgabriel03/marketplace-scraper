@@ -415,7 +415,7 @@ def run_once(args, pattern: re.Pattern) -> None:
                 login_flag.touch()
             return
         login_flag.unlink(missing_ok=True)
-        new = [l for lid, l in results.items() if lid not in seen]
+        new = [l for lid, l in results.items() if args.notify_all or lid not in seen]
         log.info("%d new listings to check", len(new))
 
         hits = []
@@ -428,7 +428,7 @@ def run_once(args, pattern: re.Pattern) -> None:
                 log.info("Skip (no match): %s %s", listing.id, listing.title)
             seen.add(listing.id)
 
-    if first_run and not args.notify_existing:
+    if first_run and not (args.notify_existing or args.notify_all):
         log.info("First run: %d existing matches marked as seen", len(hits))
         send(
             "Marketplace watcher started",
@@ -456,6 +456,9 @@ def parse_args(argv=None):
     p.add_argument("--scrolls", type=int, default=int(os.getenv("SCROLLS", 3)))
     p.add_argument("--interval", type=int, default=int(os.getenv("INTERVAL_MIN", 0)),
                    help="Minutes between checks; 0 = run once and exit")
+    p.add_argument("--notify-all", action="store_true",
+                   default=os.getenv("NOTIFY_ALL", "").lower() == "true",
+                   help="Notify every current match, even ones already seen")
     p.add_argument("--notify-existing", action="store_true",
                    help="On first run, notify for listings already online")
     p.add_argument("--headful", action="store_true", help="Show the browser window")

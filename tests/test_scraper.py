@@ -90,3 +90,23 @@ def test_parse_cookie_header():
     assert [(c["name"], c["value"]) for c in cookies] == [
         ("c_user", "123"), ("xs", "ab%3Acd="), ("datr", "zz")]
     assert scraper.parse_cookies('[{"name": "xs", "value": "1"}]')[0]["name"] == "xs"
+
+
+def test_notify_all_resends_seen(tmp_path, monkeypatch):
+    class Fake:
+        def __init__(self, args): pass
+        def __enter__(self): return self
+        def __exit__(self, *exc): pass
+        def search(self): return {"7": Listing(id="7", title="Mags 5x112")}
+        def fill_details(self, listing): pass
+
+    sent = []
+    monkeypatch.setattr(scraper, "Scraper", Fake)
+    monkeypatch.setattr(scraper, "notify", lambda l: sent.append(l.id))
+    monkeypatch.setattr(scraper, "send", lambda *a, **k: None)
+    state = tmp_path / "seen.json"
+    scraper.save_seen(state, {"7"})
+    scraper.run_once(scraper.parse_args(["--state", str(state)]), P)
+    assert sent == []
+    scraper.run_once(scraper.parse_args(["--state", str(state), "--notify-all"]), P)
+    assert sent == ["7"]

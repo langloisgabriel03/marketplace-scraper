@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "*/15 * * * *"   # GitHub may delay scheduled runs by a few minutes
   workflow_dispatch:
+    inputs:
+      notify_all:
+        description: "Send a link for every current 5x112 listing, not just new ones"
+        type: boolean
+        default: false
 
 concurrency:
   group: marketplace-watcher
@@ -37,6 +42,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           FB_COOKIES_JSON: ${{ secrets.FB_COOKIES_JSON }}
+          NOTIFY_ALL: ${{ inputs.notify_all }}
         run: python scraper.py
 
       - name: Upload debug snapshot
