@@ -1,0 +1,12 @@
+name: Probe logged-out search
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install requests && python tools/probe_graphql.py
