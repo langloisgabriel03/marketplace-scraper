@@ -58,6 +58,18 @@ def _first(patterns, text: str) -> str:
     return ""
 
 
+def _logged_in_user(html: str) -> str:
+    m = re.search(r'"USER_ID":"(\d+)"', html) or re.search(r'"actorID":"(\d+)"', html)
+    return m.group(1) if m and m.group(1) != "0" else ""
+
+
+def _save_debug(name: str, text: str) -> None:
+    """Keep the last raw answer on the device for troubleshooting (never uploaded)."""
+    path = Path("debug") / name
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(text)
+
+
 def is_login_page(url: str) -> bool:
     return "/login" in url or "/checkpoint" in url
 
@@ -117,11 +129,21 @@ class PhoneScraper:
         a = self.args
         url = scraper.search_url(a.location_slug, a.query, a.radius, a.lat, a.lon)
         html = self._get(url)
+        blobs = list(json_blobs_from_html(html))
         found: dict[str, Listing] = {}
-        for blob in json_blobs_from_html(html):
+        for blob in blobs:
             found.update(listings_from_json(blob))
         log.info("Search page: %d listings", len(found))
         if not found:
+            _save_debug("search.html", html)
+            title = re.search(r"<title[^>]*>([^<]*)", html)
+            log.info(
+                "Search page details: %d bytes, %d JSON blocks, title %r, "
+                "logged in as account: %s, mentions marketplace_search: %s",
+                len(html), len(blobs), title.group(1) if title else "",
+                _logged_in_user(html) or "no",
+                "marketplace_search" in html,
+            )
             # The page didn't embed results; ask the GraphQL API like the page would.
             found = self._graphql_search(html)
             log.info("GraphQL search: %d listings", len(found))
@@ -173,9 +195,15 @@ class PhoneScraper:
         )
         found: dict[str, Listing] = {}
         for blob in json_blobs_from_graphql(r.text):
-            if "errors" in blob and "data" not in blob:
+            if "errors" in blob:
                 log.warning("GraphQL error: %s", str(blob["errors"])[:300])
             found.update(listings_from_json(blob))
+        if not found:
+            _save_debug("graphql.txt", r.text)
+            edges = re.search(r'"edges":\[(.{0,80})', r.text)
+            log.info("GraphQL details: HTTP %s, %d bytes, token found: %s, start: %s",
+                     r.status_code, len(r.text), bool(dtsg),
+                     edges.group(0) if edges else r.text[:200])
         return found
 
     def fill_details(self, listing: Listing) -> None:
