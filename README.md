@@ -48,11 +48,17 @@ or run it on your own computer.
 
 ## Facebook cookies (optional)
 
-Searching while logged out usually works. If it doesn't, sign in to Facebook in your browser,
-export your cookies for facebook.com as JSON (for example with the "Cookie-Editor"
-extension), and save them as `cookies.json` next to `scraper.py`, or put the JSON in the
-`FB_COOKIES_JSON` secret. Consider using a secondary account: automated access goes against
-Facebook's terms, and the account could be restricted.
+Searching while logged out usually works from home, but GitHub's servers get a login page.
+Sign in to Facebook in your browser, then either:
+
+- **DevTools:** press F12 → **Network** tab → reload facebook.com → click the first request
+  → **Request Headers** → copy the whole value of `cookie` (starts with `datr=` or `sb=`), or
+- **Cookie-Editor extension:** Export → JSON.
+
+Put it in the `FB_COOKIES_JSON` secret (or a `cookies.json` file next to `scraper.py`).
+Stay logged in on that browser: logging out kills the cookies. When they expire you get a
+"Facebook login needed" notification. Consider using a secondary account: automated access
+goes against Facebook's terms, and the account could be restricted.
 
 ## Options
 

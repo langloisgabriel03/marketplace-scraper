@@ -83,3 +83,10 @@ def test_login_wall_alerts_once(tmp_path, monkeypatch):
     scraper.run_once(args, P)
     scraper.run_once(args, P)
     assert len(sent) == 1 and "login" in sent[0]
+
+
+def test_parse_cookie_header():
+    cookies = scraper.parse_cookies("cookie: c_user=123; xs=ab%3Acd=; datr=zz")
+    assert [(c["name"], c["value"]) for c in cookies] == [
+        ("c_user", "123"), ("xs", "ab%3Acd="), ("datr", "zz")]
+    assert scraper.parse_cookies('[{"name": "xs", "value": "1"}]')[0]["name"] == "xs"

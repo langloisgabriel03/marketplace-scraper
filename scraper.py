@@ -353,12 +353,27 @@ def _dismiss_login_popup(page) -> None:
 
 
 def _load_cookies(path: str | None):
-    """Load cookies exported from a browser (e.g. 'Cookie-Editor' JSON export)."""
+    """Load cookies from a 'Cookie-Editor' JSON export, or a raw
+    "c_user=...; xs=..." cookie header copied from browser DevTools."""
     raw = os.getenv("FB_COOKIES_JSON")
     if not raw and path and Path(path).exists():
         raw = Path(path).read_text()
+    raw = (raw or "").strip()
     if not raw:
         return []
+    return parse_cookies(raw)
+
+
+def parse_cookies(raw: str) -> list[dict]:
+    if raw.lower().startswith("cookie:"):
+        raw = raw[len("cookie:"):].strip()
+    if not raw.startswith("["):
+        items = [part.strip().split("=", 1) for part in raw.split(";")]
+        return [
+            {"name": k.strip(), "value": v.strip(), "domain": ".facebook.com",
+             "path": "/", "secure": True, "httpOnly": False, "sameSite": "None"}
+            for k, v in (i for i in items if len(i) == 2)
+        ]
     cookies = []
     for c in json.loads(raw):
         cookie = {
