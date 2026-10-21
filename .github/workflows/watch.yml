@@ -2,7 +2,7 @@ name: Marketplace 5x112 watcher
 
 on:
   schedule:
-    - cron: "*/15 * * * *"   # GitHub may delay scheduled runs by a few minutes
+    - cron: "*/5 * * * *"    # GitHub's minimum; runs are often delayed a few minutes
   workflow_dispatch:
     inputs:
       notify_all:
@@ -44,15 +44,6 @@ jobs:
           FB_COOKIES_JSON: ${{ secrets.FB_COOKIES_JSON }}
           NOTIFY_ALL: ${{ inputs.notify_all }}
         run: python scraper.py
-
-      - name: Upload debug snapshot
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug
-          path: debug
-          if-no-files-found: ignore
-          retention-days: 3
 
       - name: Save seen listings
         if: always()

@@ -38,7 +38,7 @@ python scraper.py --interval 10                     # check every 10 minutes, fo
 
 ## 2b. Run on GitHub Actions (free, no computer needed)
 
-`.github/workflows/watch.yml` runs every 15 minutes. In the repo, go to
+`.github/workflows/watch.yml` runs every 5 minutes. In the repo, go to
 **Settings → Secrets and variables → Actions** and add `NTFY_TOPIC` (or the Telegram/Discord secrets).
 You can start a run by hand from the **Actions** tab.
 
