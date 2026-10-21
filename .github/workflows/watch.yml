@@ -1,8 +1,10 @@
 name: Marketplace 5x112 watcher
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"    # GitHub's minimum; runs are often delayed a few minutes
+  # Paused: Facebook put the account behind a security checkpoint.
+  # To resume, uncomment the two lines below.
+  # schedule:
+  #   - cron: "*/5 * * * *"    # GitHub's minimum; runs are often delayed a few minutes
   workflow_dispatch:
     inputs:
       notify_all:
