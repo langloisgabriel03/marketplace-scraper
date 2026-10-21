@@ -1,0 +1,47 @@
+name: Marketplace 5x112 watcher
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # GitHub may delay scheduled runs by a few minutes
+  workflow_dispatch:
+
+concurrency:
+  group: marketplace-watcher
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt && python -m playwright install --with-deps chromium
+
+      - name: Restore seen listings
+        uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: seen-${{ github.run_id }}
+          restore-keys: seen-
+
+      - name: Check Marketplace
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          FB_COOKIES_JSON: ${{ secrets.FB_COOKIES_JSON }}
+        run: python scraper.py
+
+      - name: Save seen listings
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state
+          key: seen-${{ github.run_id }}
