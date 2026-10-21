@@ -22,6 +22,28 @@ to a hard-to-guess topic name, e.g. `gabriel-5x112-a8f3k`. Then set `NTFY_TOPIC`
 **Telegram:** set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 **Discord:** set `DISCORD_WEBHOOK_URL`.
 
+## Run on an Android phone (Termux)
+
+`phone_watcher.py` needs no browser. It uses your Facebook cookie from your phone's own
+connection and saves the cookies Facebook refreshes, so the session doesn't expire.
+
+1. Install **Termux** from F-Droid (not the Play Store), open it, and run:
+   ```bash
+   pkg install -y python git
+   pip install requests
+   git clone https://github.com/langloisgabriel03/marketplace-scraper.git
+   cd marketplace-scraper
+   ```
+2. Create `phone.env` with your settings: `echo "NTFY_TOPIC=your-topic" > phone.env`
+3. Paste your Facebook cookie (the DevTools `cookie` header) into `cookies.txt`:
+   `nano cookies.txt`, paste, then Ctrl+X, Y, Enter.
+4. Test: `./start_phone.sh --test-notify`, then `./start_phone.sh --interval 0` for one check.
+5. Run it for good: `./start_phone.sh`. It checks every ~10 minutes and pauses 1:00–6:00.
+
+In Android settings, set Termux's battery usage to **Unrestricted** so it keeps running.
+If you get "Facebook login needed", paste a fresh cookie into `cookies.txt`, run
+`rm state/cookies.json`, and restart.
+
 ## 2a. Run on your own computer (most reliable)
 
 Facebook trusts home internet connections more than cloud servers, so this is the best option.

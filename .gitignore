@@ -5,3 +5,5 @@ state/
 cookies.json
 .env
 debug/
+cookies.txt
+phone.env
