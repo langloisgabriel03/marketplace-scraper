@@ -110,3 +110,15 @@ def test_notify_all_resends_seen(tmp_path, monkeypatch):
     assert sent == []
     scraper.run_once(scraper.parse_args(["--state", str(state), "--notify-all"]), P)
     assert sent == ["7"]
+
+
+def test_maybe_brand():
+    def brand(title, description=""):
+        return scraper.maybe_brand(Listing(id="1", title=title, description=description))
+
+    assert brand("Mags volkswagen 17\"") == "volkswagen"
+    assert brand("Audi Ronal 18-Inch Alloy Wheel set") == "Audi"
+    assert brand("Jantes", "Viennent d'une VW Jetta") == "VW"
+    assert brand("Mags VW 5x100") == ""          # bolt pattern stated, not 5x112
+    assert brand("Mags Hyundai 17\"") == ""      # not a 5x112 brand
+    assert brand("Audi A4 2012 à vendre") == ""  # not wheels

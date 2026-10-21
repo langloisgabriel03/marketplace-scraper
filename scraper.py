@@ -33,6 +33,11 @@ DEFAULT_LOCATION_SLUG = "quebec"
 # Matches "5x112", "5 x 112", "5X112", "5*112", "5×112" but not "15x112" or "5x1120"
 DEFAULT_PATTERN = r"(?<!\d)5\s*[x×*]\s*112(?!\d)"
 
+# "Maybe" matches: wheels for brands that mostly use 5x112, with no bolt pattern stated
+MAYBE_BRAND_RE = re.compile(r"\b(vw|volkswagen|audi|mercedes|benz|skoda)\b", re.IGNORECASE)
+WHEEL_RE = re.compile(r"\b(mags?|jantes?|roues?|wheels?|rims?)\b", re.IGNORECASE)
+ANY_BOLT_PATTERN_RE = re.compile(r"(?<!\d)\d\s*[x×*]\s*1\d\d(?:[.,]\d+)?(?!\d)", re.IGNORECASE)
+
 
 @dataclass
 class Listing:
@@ -58,6 +63,15 @@ def compile_pattern(pattern: str) -> re.Pattern:
 
 def matches(listing: Listing, pattern: re.Pattern) -> bool:
     return bool(pattern.search(listing.title or "") or pattern.search(listing.description or ""))
+
+
+def maybe_brand(listing: Listing) -> str:
+    """Brand name if this looks like 5x112 wheels whose bolt pattern isn't stated."""
+    text = f"{listing.title}\n{listing.description}"
+    brand = MAYBE_BRAND_RE.search(text)
+    if not brand or not WHEEL_RE.search(text) or ANY_BOLT_PATTERN_RE.search(text):
+        return ""
+    return brand.group(1)
 
 
 def _walk(obj):
@@ -178,8 +192,9 @@ def save_seen(path: Path, seen: set[str]) -> None:
 # Notifications
 # --------------------------------------------------------------------------- #
 
-def notify(listing: Listing) -> None:
-    title = f"5x112: {listing.title}"[:250]
+def notify(listing: Listing, maybe: str = "") -> None:
+    prefix = f"Maybe 5x112 ({maybe})" if maybe else "5x112"
+    title = f"{prefix}: {listing.title}"[:250]
     body = "\n".join(x for x in (listing.price, listing.location, listing.url) if x)
     send(title, body, click=listing.url)
 

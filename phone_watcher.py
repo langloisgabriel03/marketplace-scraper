@@ -253,15 +253,19 @@ def run_once(args, pattern: re.Pattern, session: requests.Session) -> None:
         results = fb.search()
         new = [l for lid, l in results.items() if args.notify_all or lid not in seen]
         log.info("%d new listings to check", len(new))
-        hits = []
+        hits, maybes = [], []
         for listing in new:
             if not matches(listing, pattern):
                 time.sleep(random.uniform(2, 5))
                 fb.fill_details(listing)
             if matches(listing, pattern):
                 hits.append(listing)
+            elif args.maybe and (brand := scraper.maybe_brand(listing)):
+                log.info("Maybe (%s): %s %s", brand, listing.id, listing.title)
+                maybes.append((listing, brand))
             else:
-                log.info("Skip (no match): %s %s", listing.id, listing.title)
+                log.info("Skip (no match, description %d chars): %s %s",
+                         len(listing.description), listing.id, listing.title)
             seen.add(listing.id)
     except LoginRequired:
         log.error("Facebook asked to log in or verify the account")
@@ -282,11 +286,14 @@ def run_once(args, pattern: re.Pattern, session: requests.Session) -> None:
         scraper.send(
             "Marketplace watcher started (phone)",
             f"Watching '{args.query}' within {args.radius} km. "
-            f"{len(hits)} existing listings found, you'll be notified of new ones.",
+            f"{len(hits)} existing listings found ({len(maybes)} maybe), "
+            "you'll be notified of new ones.",
         )
     else:
         for listing in hits:
             scraper.notify(listing)
+        for listing, brand in maybes:
+            scraper.notify(listing, maybe=brand)
     scraper.save_seen(state, seen)
 
 
@@ -310,6 +317,9 @@ def parse_args(argv=None):
                    help='Local hours to skip, e.g. "1-6"; empty to never pause')
     p.add_argument("--notify-all", action="store_true",
                    help="Notify every current match, even ones already seen")
+    p.add_argument("--no-maybe", dest="maybe", action="store_false",
+                   default=os.getenv("MAYBE", "true").lower() != "false",
+                   help="Don't send 'Maybe 5x112' alerts for VW/Audi/Mercedes/Skoda wheels")
     p.add_argument("--test-notify", action="store_true")
     return p.parse_args(argv)
 

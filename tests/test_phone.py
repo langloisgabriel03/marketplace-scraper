@@ -41,7 +41,8 @@ def args_for(tmp_path, *extra):
 def capture(monkeypatch):
     sent = []
     monkeypatch.setattr(scraper, "send", lambda title, body, click="": sent.append(title))
-    monkeypatch.setattr(scraper, "notify", lambda l: sent.append("NEW " + l.id))
+    monkeypatch.setattr(scraper, "notify",
+                        lambda l, maybe="": sent.append(("MAYBE " if maybe else "NEW ") + l.id))
     monkeypatch.setattr(pw.time, "sleep", lambda s: None)
     return sent
 
@@ -105,3 +106,17 @@ def test_quiet_hours():
     assert not pw.in_quiet_hours("1-6", datetime(2026, 1, 1, 6))
     assert pw.in_quiet_hours("23-5", datetime(2026, 1, 1, 0))
     assert not pw.in_quiet_hours("", datetime(2026, 1, 1, 3))
+
+
+def test_maybe_alert_for_vw_wheels(tmp_path, monkeypatch):
+    sent = capture(monkeypatch)
+    blob = {"data": {"marketplace_search": {"feed_units": {"edges": [
+        {"node": {"listing": {"id": "333", "marketplace_listing_title": "Mags volkswagen 17\""}}},
+        {"node": {"listing": {"id": "444", "marketplace_listing_title": "Mags VW 5x100"}}},
+    ]}}}}
+    pages = lambda url: FakeResponse(html_with(blob))
+    pw.run_once(args_for(tmp_path, "--notify-all"), P, make_session(pages))
+    assert sent == ["MAYBE 333"]
+    sent.clear()
+    pw.run_once(args_for(tmp_path, "--notify-all", "--no-maybe"), P, make_session(pages))
+    assert sent == []
