@@ -39,6 +39,15 @@ jobs:
           FB_COOKIES_JSON: ${{ secrets.FB_COOKIES_JSON }}
         run: python scraper.py
 
+      - name: Upload debug snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug
+          path: debug
+          if-no-files-found: ignore
+          retention-days: 3
+
       - name: Save seen listings
         if: always()
         uses: actions/cache/save@v4

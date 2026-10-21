@@ -293,6 +293,15 @@ class Scraper:
             if m and m.group(1) not in found:
                 found[m.group(1)] = Listing(id=m.group(1))
 
+        if not found:
+            # Usually a login wall or a block page; keep a snapshot to see which.
+            debug = Path("debug")
+            debug.mkdir(exist_ok=True)
+            page.screenshot(path=str(debug / "search.png"), full_page=True)
+            (debug / "search.html").write_text(page.content())
+            log.warning("No listings found. Page title: %r, URL: %s (see debug/)",
+                        page.title(), page.url)
+
         page.close()
         log.info("Search returned %d listings", len(found))
         return found
