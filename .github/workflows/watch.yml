@@ -1,10 +1,8 @@
 name: Marketplace 5x112 watcher
 
 on:
-  # Paused: Facebook put the account behind a security checkpoint.
-  # To resume, uncomment the two lines below.
-  # schedule:
-  #   - cron: "*/5 * * * *"    # GitHub's minimum; runs are often delayed a few minutes
+  schedule:
+    - cron: "*/15 * * * *"   # GitHub may delay scheduled runs by a few minutes
   workflow_dispatch:
     inputs:
       notify_all:
@@ -44,6 +42,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           FB_COOKIES_JSON: ${{ secrets.FB_COOKIES_JSON }}
+          FB_USER_AGENT: ${{ secrets.FB_USER_AGENT }}
           NOTIFY_ALL: ${{ inputs.notify_all }}
         run: python scraper.py
 

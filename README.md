@@ -38,7 +38,7 @@ python scraper.py --interval 10                     # check every 10 minutes, fo
 
 ## 2b. Run on GitHub Actions (free, no computer needed)
 
-`.github/workflows/watch.yml` runs every 5 minutes. In the repo, go to
+`.github/workflows/watch.yml` runs every 15 minutes. In the repo, go to
 **Settings → Secrets and variables → Actions** and add `NTFY_TOPIC` (or the Telegram/Discord secrets).
 You can start a run by hand from the **Actions** tab.
 
@@ -56,6 +56,8 @@ Sign in to Facebook in your browser, then either:
 - **Cookie-Editor extension:** Export → JSON.
 
 Put it in the `FB_COOKIES_JSON` secret (or a `cookies.json` file next to `scraper.py`).
+Also add your browser's user agent as the `FB_USER_AGENT` secret (type `navigator.userAgent`
+in the DevTools Console and copy the result) so the scraper looks like the same browser.
 Stay logged in on that browser: logging out kills the cookies. When they expire you get a
 "Facebook login needed" notification. Consider using a secondary account: automated access
 goes against Facebook's terms, and the account could be restricted.
