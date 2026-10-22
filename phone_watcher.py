@@ -341,6 +341,15 @@ def main(argv=None) -> int:
         else:
             try:
                 run_once(args, pattern, session)
+            except (requests.ConnectionError, requests.Timeout) as e:
+                # Phone briefly offline (Wi-Fi/data switch, Doze): retry soon, quietly.
+                log.warning("No internet connection (%s), retrying soon", type(e).__name__)
+                if not args.interval:
+                    return 1
+                retry = random.uniform(60, 120)
+                log.info("Next check in %.1f min", retry / 60)
+                time.sleep(retry)
+                continue
             except Exception:
                 log.exception("Check failed")
                 if not args.interval:

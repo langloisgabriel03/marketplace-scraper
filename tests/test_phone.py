@@ -120,3 +120,30 @@ def test_maybe_alert_for_vw_wheels(tmp_path, monkeypatch):
     sent.clear()
     pw.run_once(args_for(tmp_path, "--notify-all", "--no-maybe"), P, make_session(pages))
     assert sent == []
+
+
+def test_offline_retries_soon_without_traceback(tmp_path, monkeypatch, caplog):
+    sleeps = []
+
+    def offline(*a, **k):
+        raise requests.ConnectionError("Failed to resolve 'www.facebook.com'")
+
+    calls = iter([offline, KeyboardInterrupt])
+
+    def fake_run_once(args, pattern, session):
+        step = next(calls)
+        if step is KeyboardInterrupt:
+            raise KeyboardInterrupt
+        step()
+
+    (tmp_path / "cookies.txt").write_text("c_user=42; xs=abc")
+    monkeypatch.setattr(pw, "run_once", fake_run_once)
+    monkeypatch.setattr(pw.time, "sleep", sleeps.append)
+    args = ["--state", str(tmp_path / "state" / "seen.json"), "--cookie-file",
+            str(tmp_path / "cookies.txt"), "--quiet-hours", "", "--interval", "10"]
+    try:
+        pw.main(args)
+    except KeyboardInterrupt:
+        pass
+    assert len(sleeps) == 1 and 60 <= sleeps[0] <= 120
+    assert "No internet connection" in caplog.text and "Traceback" not in caplog.text
