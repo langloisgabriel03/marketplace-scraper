@@ -245,12 +245,20 @@ class Watch:
     pattern: re.Pattern | None = None
     maybe: bool = False
     alternatives: tuple[str, ...] = ()
+    excludes: tuple[str, ...] = ()
 
     @property
     def queries(self) -> list[str]:
         return [self.query, *self.alternatives]
 
+    def excluded(self, listing: Listing) -> str:
+        """The excluded word found in the listing, if any (same leniency as matching)."""
+        text = _normalize(f"{listing.title} {listing.description}")
+        return next((w for w in self.excludes if _stem(_normalize(w)) in text), "")
+
     def matches(self, listing: Listing) -> bool:
+        if self.excluded(listing):
+            return False
         if self.pattern:
             return matches(listing, self.pattern)
         text = _normalize(f"{listing.title} {listing.description}")
@@ -281,7 +289,8 @@ def _stem(word: str) -> str:
 
 def parse_watches(text: str) -> list[Watch]:
     """One search per line: "query", "query | regex" or "query | regex | maybe".
-    Several spellings can share a line: "spiderman / spider-man / homme araignée"."""
+    Several spellings can share a line: "spiderman / spider-man", and words prefixed
+    with "-" exclude listings that mention them: "spiderman -costume"."""
     watches = []
     for line in text.splitlines():
         line = line.strip()
@@ -290,8 +299,10 @@ def parse_watches(text: str) -> list[Watch]:
         parts = [p.strip() for p in line.split("|")]
         pattern = compile_pattern(parts[1]) if len(parts) > 1 and parts[1] else None
         maybe = len(parts) > 2 and parts[2].lower() == "maybe"
-        spellings = [q.strip() for q in parts[0].split("/") if q.strip()]
-        watches.append(Watch(spellings[0], pattern, maybe, tuple(spellings[1:])))
+        excludes = tuple(re.findall(r"(?:^|\s)-(\S+)", parts[0]))
+        query_text = re.sub(r"(?:^|\s)-\S+", " ", parts[0])
+        spellings = [q.strip() for q in query_text.split("/") if q.strip()]
+        watches.append(Watch(spellings[0], pattern, maybe, tuple(spellings[1:]), excludes))
     return watches
 
 
@@ -362,8 +373,9 @@ def check_query(args, fb: PhoneScraper, watch: Watch, query: str, state_dir: Pat
         if not watch.matches(listing):
             brand = scraper.maybe_brand(listing) if watch.maybe and args.maybe else ""
             if not brand:
-                log.info("[%s] Skip (no match, description %d chars): %s %s", query,
-                         len(listing.description), listing.id, listing.title)
+                why = (f"excluded word '{watch.excluded(listing)}'" if watch.excluded(listing)
+                       else f"no match, description {len(listing.description)} chars")
+                log.info("[%s] Skip (%s): %s %s", query, why, listing.id, listing.title)
                 continue
         if listing.id in fb.sent_now or (listing.id in notified and not args.notify_all):
             continue   # already sent by another search
