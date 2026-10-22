@@ -226,3 +226,13 @@ def test_detail_budget_defers_extra_listings(tmp_path, monkeypatch):
     pw.run_once(args_for(tmp_path, "--max-details", "0"), W5, make_session(pages))
     assert opened == []
     assert scraper.load_seen(state / "seen-5x112.json") == {"111"}   # 222 retried next time
+
+
+def test_notify_all_sends_each_listing_once_across_spellings(tmp_path, monkeypatch):
+    sent = capture(monkeypatch)
+    blob = {"data": {"marketplace_search": {"feed_units": {"edges": [
+        {"node": {"listing": {"id": "555", "marketplace_listing_title": "Spider-Man lego"}}}]}}}}
+    pages = lambda url: FakeResponse(html_with(blob))
+    watch = pw.Watch("spiderman", alternatives=("spider-man",))
+    pw.run_once(args_for(tmp_path, "--notify-all"), [watch], make_session(pages))
+    assert sent == ["NEW 555"]

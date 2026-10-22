@@ -111,6 +111,7 @@ class PhoneScraper:
         self.args = args
         self.s = session
         self.detail_budget = args.max_details
+        self.sent_now: set[str] = set()   # listings alerted during this check
         self.s.headers.update({
             "User-Agent": args.user_agent,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -364,12 +365,13 @@ def check_query(args, fb: PhoneScraper, watch: Watch, query: str, state_dir: Pat
                 log.info("[%s] Skip (no match, description %d chars): %s %s", query,
                          len(listing.description), listing.id, listing.title)
                 continue
-        if listing.id in notified and not args.notify_all:
+        if listing.id in fb.sent_now or (listing.id in notified and not args.notify_all):
             continue   # already sent by another search
         log.info("[%s] %s: %s %s", query, f"Maybe ({brand})" if brand else "Match",
                  listing.id, listing.title)
         scraper.notify(listing, label=watch.query, maybe=brand)
         notified.add(listing.id)
+        fb.sent_now.add(listing.id)
     scraper.save_seen(path, seen)
 
 
