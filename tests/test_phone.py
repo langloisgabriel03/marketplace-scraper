@@ -155,7 +155,7 @@ def test_parse_watches_and_keyword_matching():
     assert [w.query for w in watches] == ["5x112", "simpsons", "spiderman", "audi a3"]
     assert watches[0].pattern and watches[0].maybe and not watches[1].maybe
     simpsons, spiderman, a3 = watches[1:]
-    assert spiderman.queries == ["spiderman", "spider-man", "homme araignée", "spidey"]
+    assert spiderman.queries == ["spiderman", "spider-man", "spidey"]
 
     def L(title, description=""):
         return scraper.Listing(id="1", title=title, description=description)
@@ -164,14 +164,13 @@ def test_parse_watches_and_keyword_matching():
     assert simpsons.matches(L("Lot jouets", "Les Simpsons saison 1"))
     assert spiderman.matches(L("Costume Spider-Man 5 ans"))
     assert spiderman.matches(L("SPIDER MAN lego"))
-    assert spiderman.matches(L("Costume Homme-Araignée"))
     assert spiderman.matches(L("Figurine Spidey"))
     assert not spiderman.matches(L("Spider plant"))
     assert a3.matches(L("Audi A3 2015 Sportback"))
     assert a3.matches(L("Mags", "Viennent de mon Audi A3"))
     assert not a3.matches(L("Audi A4 2015"))
     assert [pw.slugify(q) for q in spiderman.queries] == [
-        "spiderman", "spider-man", "homme-araignee", "spidey"]
+        "spiderman", "spider-man", "spidey"]
 
 
 def test_multiple_watches_new_search_and_dedup(tmp_path, monkeypatch):

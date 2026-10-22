@@ -9,5 +9,5 @@
 # field "maybe" adds "Maybe" alerts for VW/Audi/Mercedes/Skoda wheels.
 5x112 | (?<!\d)5\s*[x×*]\s*112(?!\d) | maybe
 simpsons
-spiderman / spider-man / homme araignée / spidey
+spiderman / spider-man / spidey
 audi a3
