@@ -2,10 +2,12 @@
 # description contains every word of the search (case, accents, spaces/dashes and
 # plural "s" don't matter: "spiderman" also matches "Spider-Man").
 #
+# Several spellings can share one line, separated by "/": each is searched, and
+# a listing matching any of them sends a single alert.
+#
 # Advanced: "search | regex" sets exactly what counts as a match, and a third
 # field "maybe" adds "Maybe" alerts for VW/Audi/Mercedes/Skoda wheels.
 5x112 | (?<!\d)5\s*[x×*]\s*112(?!\d) | maybe
 simpsons
-spiderman
-spider
+spiderman / spider-man / homme araignée / spidey
 audi a3

@@ -236,27 +236,41 @@ class PhoneScraper:
 
 @dataclass
 class Watch:
-    """A search to run. Without a regex, every word of the query must appear in the
-    title or description (ignoring case, accents, spaces/dashes and a plural "s")."""
+    """A search to run, optionally under several spellings. Without a regex, a listing
+    matches when every word of any spelling appears in its title or description
+    (ignoring case, accents, spaces/dashes and a plural "s")."""
 
     query: str
     pattern: re.Pattern | None = None
     maybe: bool = False
+    alternatives: tuple[str, ...] = ()
 
     @property
-    def slug(self) -> str:
-        return re.sub(r"[^a-z0-9]+", "-", _normalize(self.query, keep_spaces=True)).strip("-")
+    def queries(self) -> list[str]:
+        return [self.query, *self.alternatives]
 
     def matches(self, listing: Listing) -> bool:
         if self.pattern:
             return matches(listing, self.pattern)
         text = _normalize(f"{listing.title} {listing.description}")
-        return all(_stem(w) in text for w in _normalize(self.query, keep_spaces=True).split())
+        return any(
+            all(_stem(w) in text for w in _normalize(q, keep_spaces=True).split())
+            for q in self.queries
+        )
+
+
+def slugify(query: str) -> str:
+    """File-name-safe id for a spelling; "spiderman" and "spider-man" stay distinct."""
+    return re.sub(r"[^a-z0-9]+", "-", _strip_accents(query.lower())).strip("-")
+
+
+def _strip_accents(text: str) -> str:
+    text = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in text if not unicodedata.combining(c))
 
 
 def _normalize(text: str, keep_spaces: bool = False) -> str:
-    text = unicodedata.normalize("NFKD", text.lower())
-    text = "".join(c for c in text if not unicodedata.combining(c))
+    text = _strip_accents(text.lower())
     return re.sub(r"[^a-z0-9 ]+" if keep_spaces else r"[^a-z0-9]+", "", text)
 
 
@@ -265,7 +279,8 @@ def _stem(word: str) -> str:
 
 
 def parse_watches(text: str) -> list[Watch]:
-    """One search per line: "query", "query | regex" or "query | regex | maybe"."""
+    """One search per line: "query", "query | regex" or "query | regex | maybe".
+    Several spellings can share a line: "spiderman / spider-man / homme araignée"."""
     watches = []
     for line in text.splitlines():
         line = line.strip()
@@ -274,7 +289,8 @@ def parse_watches(text: str) -> list[Watch]:
         parts = [p.strip() for p in line.split("|")]
         pattern = compile_pattern(parts[1]) if len(parts) > 1 and parts[1] else None
         maybe = len(parts) > 2 and parts[2].lower() == "maybe"
-        watches.append(Watch(parts[0], pattern, maybe))
+        spellings = [q.strip() for q in parts[0].split("/") if q.strip()]
+        watches.append(Watch(spellings[0], pattern, maybe, tuple(spellings[1:])))
     return watches
 
 
@@ -287,10 +303,11 @@ def load_watches(args) -> list[Watch]:
     return [Watch(args.query, compile_pattern(args.pattern), maybe=True)]
 
 
-def seen_path(state_dir: Path, watch: Watch) -> Path:
-    path = state_dir / f"seen-{watch.slug}.json"
+def seen_path(state_dir: Path, query: str) -> Path:
+    slug = slugify(query)
+    path = state_dir / f"seen-{slug}.json"
     legacy = state_dir / "seen.json"   # single-search versions stored 5x112 here
-    if not path.exists() and watch.slug == scraper.DEFAULT_QUERY and legacy.exists():
+    if not path.exists() and slug == scraper.DEFAULT_QUERY and legacy.exists():
         legacy.rename(path)
     return path
 
@@ -310,17 +327,25 @@ def in_quiet_hours(spec: str, now: datetime | None = None) -> bool:
 
 def check_watch(args, fb: PhoneScraper, watch: Watch, state_dir: Path,
                 notified: set[str], started: list[str]) -> None:
-    path = seen_path(state_dir, watch)
+    for i, query in enumerate(watch.queries):
+        if i:
+            time.sleep(random.uniform(5, 15))
+        check_query(args, fb, watch, query, state_dir, notified, started)
+
+
+def check_query(args, fb: PhoneScraper, watch: Watch, query: str, state_dir: Path,
+                notified: set[str], started: list[str]) -> None:
+    path = seen_path(state_dir, query)
     seen = scraper.load_seen(path)
     first_run = seen is None   # a new search: remember what's there, don't alert on it
     seen = seen or set()
 
-    results = fb.search(watch.query)
+    results = fb.search(query)
     new = [l for lid, l in results.items() if args.notify_all or lid not in seen]
-    log.info("[%s] %d new listings to check", watch.query, len(new))
+    log.info("[%s] %d new listings to check", query, len(new))
     if first_run and not args.notify_all:
         seen.update(l.id for l in new)
-        started.append(f"{watch.query}: {len(new)} current listings")
+        started.append(f"{query}: {len(new)} current listings")
         scraper.save_seen(path, seen)
         return
 
@@ -336,12 +361,12 @@ def check_watch(args, fb: PhoneScraper, watch: Watch, state_dir: Path,
         if not watch.matches(listing):
             brand = scraper.maybe_brand(listing) if watch.maybe and args.maybe else ""
             if not brand:
-                log.info("[%s] Skip (no match, description %d chars): %s %s", watch.query,
+                log.info("[%s] Skip (no match, description %d chars): %s %s", query,
                          len(listing.description), listing.id, listing.title)
                 continue
         if listing.id in notified and not args.notify_all:
             continue   # already sent by another search
-        log.info("[%s] %s: %s %s", watch.query, f"Maybe ({brand})" if brand else "Match",
+        log.info("[%s] %s: %s %s", query, f"Maybe ({brand})" if brand else "Match",
                  listing.id, listing.title)
         scraper.notify(listing, label=watch.query, maybe=brand)
         notified.add(listing.id)
