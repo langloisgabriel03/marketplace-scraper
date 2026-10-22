@@ -40,6 +40,9 @@ connection and saves the cookies Facebook refreshes, so the session doesn't expi
 4. Test: `./start_phone.sh --test-notify`, then `./start_phone.sh --interval 0` for one check.
 5. Run it for good: `./start_phone.sh`. It checks every ~10 minutes and pauses 1:00–6:00.
 
+To watch other things, edit `watches.txt` (`nano watches.txt`): one search per line. A new
+search first remembers what's already listed, then alerts you only for new listings.
+
 In Android settings, set Termux's battery usage to **Unrestricted** so it keeps running.
 If you get "Facebook login needed", paste a fresh cookie into `cookies.txt`, run
 `rm state/cookies.json`, and restart.

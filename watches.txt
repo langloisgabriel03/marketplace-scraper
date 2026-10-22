@@ -1,0 +1,11 @@
+# One Marketplace search per line. You get an alert when a NEW listing's title or
+# description contains every word of the search (case, accents, spaces/dashes and
+# plural "s" don't matter: "spiderman" also matches "Spider-Man").
+#
+# Advanced: "search | regex" sets exactly what counts as a match, and a third
+# field "maybe" adds "Maybe" alerts for VW/Audi/Mercedes/Skoda wheels.
+5x112 | (?<!\d)5\s*[x×*]\s*112(?!\d) | maybe
+simpsons
+spiderman
+spider
+audi a3

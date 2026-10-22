@@ -192,8 +192,8 @@ def save_seen(path: Path, seen: set[str]) -> None:
 # Notifications
 # --------------------------------------------------------------------------- #
 
-def notify(listing: Listing, maybe: str = "") -> None:
-    prefix = f"Maybe 5x112 ({maybe})" if maybe else "5x112"
+def notify(listing: Listing, maybe: str = "", label: str = "5x112") -> None:
+    prefix = f"Maybe {label} ({maybe})" if maybe else label
     title = f"{prefix}: {listing.title}"[:250]
     body = "\n".join(x for x in (listing.price, listing.location, listing.url) if x)
     send(title, body, click=listing.url)
