@@ -152,9 +152,10 @@ def test_offline_retries_soon_without_traceback(tmp_path, monkeypatch, caplog):
 
 def test_parse_watches_and_keyword_matching():
     watches = pw.parse_watches(open("watches.txt").read())
-    assert [w.query for w in watches] == ["5x112", "simpsons", "spiderman", "audi a3"]
+    assert [w.query for w in watches] == ["5x112", "simpsons", "spiderman", "audi a3", "mag audi"]
     assert watches[0].pattern and watches[0].maybe and not watches[1].maybe
-    simpsons, spiderman, a3 = watches[1:]
+    simpsons, spiderman, a3, audi_wheels = watches[1:]
+    assert audi_wheels.queries == ["mag audi", "mags audi", "roue audi", "roues audi"]
     assert spiderman.queries == ["spiderman", "spider-man", "spidey"]
     assert spiderman.excludes == ("costume", "chandail", "vêtement")
 
@@ -174,6 +175,8 @@ def test_parse_watches_and_keyword_matching():
     assert a3.matches(L("Audi A3 2015 Sportback"))
     assert a3.matches(L("Mags", "Viennent de mon Audi A3"))
     assert not a3.matches(L("Audi A4 2015"))
+    assert audi_wheels.matches(L("4 roues Audi A4")) and audi_wheels.matches(L("Mag Audi Q5"))
+    assert not audi_wheels.matches(L("Mags VW 17"))
     assert [pw.slugify(q) for q in spiderman.queries] == [
         "spiderman", "spider-man", "spidey"]
 

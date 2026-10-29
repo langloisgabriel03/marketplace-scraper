@@ -13,3 +13,4 @@
 simpsons
 spiderman / spider-man / spidey -costume -chandail -vêtement
 audi a3
+mag audi / mags audi / roue audi / roues audi
