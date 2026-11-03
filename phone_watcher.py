@@ -129,9 +129,9 @@ class PhoneScraper:
         r.raise_for_status()
         return r.text
 
-    def search(self, query: str) -> dict[str, Listing]:
+    def search(self, query: str, max_price: int | None = None) -> dict[str, Listing]:
         a = self.args
-        url = scraper.search_url(a.location_slug, query, a.radius, a.lat, a.lon)
+        url = scraper.search_url(a.location_slug, query, a.radius, a.lat, a.lon, max_price)
         html = self._get(url)
         blobs = list(json_blobs_from_html(html))
         found: dict[str, Listing] = {}
@@ -149,11 +149,12 @@ class PhoneScraper:
                 "marketplace_search" in html,
             )
             # The page didn't embed results; ask the GraphQL API like the page would.
-            found = self._graphql_search(html, query)
+            found = self._graphql_search(html, query, max_price)
             log.info("GraphQL search: %d listings", len(found))
         return found
 
-    def _graphql_search(self, html: str, query: str) -> dict[str, Listing]:
+    def _graphql_search(self, html: str, query: str,
+                        max_price: int | None = None) -> dict[str, Listing]:
         a = self.args
         dtsg = _first(_DTSG_RES, html)
         lsd = _first((_LSD_RE,), html)
@@ -173,7 +174,8 @@ class PhoneScraper:
                     "filter_location_latitude": a.lat,
                     "filter_location_longitude": a.lon,
                     "filter_price_lower_bound": 0,
-                    "filter_price_upper_bound": 214748364700,
+                    # Facebook counts this bound in cents
+                    "filter_price_upper_bound": max_price * 100 if max_price else 214748364700,
                     "filter_radius_km": a.radius,
                 },
                 "custom_request_params": {"surface": "SEARCH"},
@@ -193,7 +195,8 @@ class PhoneScraper:
                 "Sec-Fetch-Dest": "empty",
                 "Sec-Fetch-Mode": "cors",
                 "Origin": "https://www.facebook.com",
-                "Referer": scraper.search_url(a.location_slug, query, a.radius, a.lat, a.lon),
+                "Referer": scraper.search_url(a.location_slug, query, a.radius, a.lat, a.lon,
+                                              max_price),
             },
             timeout=30,
         )
@@ -246,6 +249,7 @@ class Watch:
     maybe: bool = False
     alternatives: tuple[str, ...] = ()
     excludes: tuple[str, ...] = ()
+    max_price: int | None = None
 
     @property
     def queries(self) -> list[str]:
@@ -256,8 +260,12 @@ class Watch:
         text = _normalize(f"{listing.title} {listing.description}")
         return next((w for w in self.excludes if _stem(_normalize(w)) in text), "")
 
+    def too_expensive(self, listing: Listing) -> bool:
+        price = scraper.price_value(listing.price)
+        return self.max_price is not None and price is not None and price > self.max_price
+
     def matches(self, listing: Listing) -> bool:
-        if self.excluded(listing):
+        if self.excluded(listing) or self.too_expensive(listing):
             return False
         if self.pattern:
             return matches(listing, self.pattern)
@@ -289,8 +297,9 @@ def _stem(word: str) -> str:
 
 def parse_watches(text: str) -> list[Watch]:
     """One search per line: "query", "query | regex" or "query | regex | maybe".
-    Several spellings can share a line: "spiderman / spider-man", and words prefixed
-    with "-" exclude listings that mention them: "spiderman -costume"."""
+    Several spellings can share a line: "spiderman / spider-man", words prefixed
+    with "-" exclude listings that mention them: "spiderman -costume", and
+    "max:4000" skips listings priced above $4000."""
     watches = []
     for line in text.splitlines():
         line = line.strip()
@@ -299,10 +308,13 @@ def parse_watches(text: str) -> list[Watch]:
         parts = [p.strip() for p in line.split("|")]
         pattern = compile_pattern(parts[1]) if len(parts) > 1 and parts[1] else None
         maybe = len(parts) > 2 and parts[2].lower() == "maybe"
-        excludes = tuple(re.findall(r"(?:^|\s)-(\S+)", parts[0]))
-        query_text = re.sub(r"(?:^|\s)-\S+", " ", parts[0])
+        max_price = re.search(r"(?:^|\s)max:(\d+)", parts[0])
+        query_text = re.sub(r"(?:^|\s)max:\d+", " ", parts[0])
+        excludes = tuple(re.findall(r"(?:^|\s)-(\S+)", query_text))
+        query_text = re.sub(r"(?:^|\s)-\S+", " ", query_text)
         spellings = [q.strip() for q in query_text.split("/") if q.strip()]
-        watches.append(Watch(spellings[0], pattern, maybe, tuple(spellings[1:]), excludes))
+        watches.append(Watch(spellings[0], pattern, maybe, tuple(spellings[1:]), excludes,
+                             int(max_price.group(1)) if max_price else None))
     return watches
 
 
@@ -352,7 +364,7 @@ def check_query(args, fb: PhoneScraper, watch: Watch, query: str, state_dir: Pat
     first_run = seen is None   # a new search: remember what's there, don't alert on it
     seen = seen or set()
 
-    results = fb.search(query)
+    results = fb.search(query, watch.max_price)
     new = [l for lid, l in results.items() if args.notify_all or lid not in seen]
     log.info("[%s] %d new listings to check", query, len(new))
     if first_run and not args.notify_all:
@@ -362,6 +374,11 @@ def check_query(args, fb: PhoneScraper, watch: Watch, query: str, state_dir: Pat
         return
 
     for listing in new:
+        if watch.too_expensive(listing):
+            log.info("[%s] Skip (price %s over %s $): %s %s", query, listing.price,
+                     watch.max_price, listing.id, listing.title)
+            seen.add(listing.id)
+            continue
         if not watch.matches(listing):
             if fb.detail_budget <= 0:
                 continue   # check this one's description next time
@@ -373,8 +390,12 @@ def check_query(args, fb: PhoneScraper, watch: Watch, query: str, state_dir: Pat
         if not watch.matches(listing):
             brand = scraper.maybe_brand(listing) if watch.maybe and args.maybe else ""
             if not brand:
-                why = (f"excluded word '{watch.excluded(listing)}'" if watch.excluded(listing)
-                       else f"no match, description {len(listing.description)} chars")
+                if watch.excluded(listing):
+                    why = f"excluded word '{watch.excluded(listing)}'"
+                elif watch.too_expensive(listing):
+                    why = f"price {listing.price} over {watch.max_price} $"
+                else:
+                    why = f"no match, description {len(listing.description)} chars"
                 log.info("[%s] Skip (%s): %s %s", query, why, listing.id, listing.title)
                 continue
         if listing.id in fb.sent_now or (listing.id in notified and not args.notify_all):

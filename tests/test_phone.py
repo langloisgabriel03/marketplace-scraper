@@ -153,11 +153,12 @@ def test_offline_retries_soon_without_traceback(tmp_path, monkeypatch, caplog):
 def test_parse_watches_and_keyword_matching():
     watches = pw.parse_watches(open("watches.txt").read())
     assert [w.query for w in watches] == ["5x112", "simpsons", "spiderman", "audi a3", "mag audi"]
+    assert watches[3].max_price == 4000 and watches[3].queries == ["audi a3"]
     assert watches[0].pattern and watches[0].maybe and not watches[1].maybe
     simpsons, spiderman, a3, audi_wheels = watches[1:]
     assert audi_wheels.queries == ["mag audi", "mags audi", "roue audi", "roues audi"]
     assert spiderman.queries == ["spiderman", "spider-man", "spidey"]
-    assert spiderman.excludes == ("costume", "chandail", "vêtement")
+    assert spiderman.excludes == ("costume", "chandail", "vêtement", "comic")
 
     def L(title, description=""):
         return scraper.Listing(id="1", title=title, description=description)
@@ -175,6 +176,15 @@ def test_parse_watches_and_keyword_matching():
     assert a3.matches(L("Audi A3 2015 Sportback"))
     assert a3.matches(L("Mags", "Viennent de mon Audi A3"))
     assert not a3.matches(L("Audi A4 2015"))
+    assert not spiderman.matches(L("Amazing Spider-Man comics #300"))
+
+    def priced(title, price):
+        return scraper.Listing(id="1", title=title, price=price)
+
+    assert a3.matches(priced("Mags Audi A3", "450 $"))
+    assert a3.matches(priced("Audi A3 phares", "4 000 $"))
+    assert not a3.matches(priced("Audi A3 2015 Sportback", "12 500 $"))
+    assert a3.matches(priced("Audi A3 pièces", ""))        # no price shown: still alert
     assert audi_wheels.matches(L("4 roues Audi A4")) and audi_wheels.matches(L("Mag Audi Q5"))
     assert not audi_wheels.matches(L("Mags VW 17"))
     assert [pw.slugify(q) for q in spiderman.queries] == [
@@ -244,3 +254,23 @@ def test_notify_all_sends_each_listing_once_across_spellings(tmp_path, monkeypat
     watch = pw.Watch("spiderman", alternatives=("spider-man",))
     pw.run_once(args_for(tmp_path, "--notify-all"), [watch], make_session(pages))
     assert sent == ["NEW 555"]
+
+
+def test_max_price_filters_search_and_skips_lookup(tmp_path, monkeypatch):
+    sent = capture(monkeypatch)
+    urls = []
+    blob = {"data": {"marketplace_search": {"feed_units": {"edges": [
+        {"node": {"listing": {"id": "777", "marketplace_listing_title": "Audi A3 2016",
+                              "listing_price": {"formatted_amount": "14 995 $"}}}},
+        {"node": {"listing": {"id": "888", "marketplace_listing_title": "Mags Audi A3",
+                              "listing_price": {"formatted_amount": "600 $"}}}},
+    ]}}}}
+
+    def pages(url):
+        urls.append(url)
+        return FakeResponse(html_with(blob))
+
+    watch = pw.parse_watches("audi a3 max:4000")[0]
+    pw.run_once(args_for(tmp_path, "--notify-all"), [watch], make_session(pages))
+    assert sent == ["NEW 888"]
+    assert "maxPrice=4000" in urls[0] and not any("/item/777" in u for u in urls)

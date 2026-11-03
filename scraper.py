@@ -157,14 +157,32 @@ def json_blobs_from_graphql(body: str):
             continue
 
 
-def search_url(slug: str, query: str, radius_km: int, lat: float | None, lon: float | None) -> str:
+def search_url(slug: str, query: str, radius_km: int, lat: float | None, lon: float | None,
+               max_price: int | None = None) -> str:
     url = (
         f"https://www.facebook.com/marketplace/{slug}/search/"
         f"?query={quote_plus(query)}&radius={radius_km}&sortBy=creation_time_descend&exact=false"
     )
     if lat is not None and lon is not None:
         url += f"&latitude={lat}&longitude={lon}"
+    if max_price is not None:
+        url += f"&maxPrice={max_price}"
     return url
+
+
+_FREE_RE = re.compile(r"\b(gratuit|free)\b", re.IGNORECASE)
+
+
+def price_value(formatted: str) -> int | None:
+    """Whole dollars from a Marketplace price like "4 000 $", "CA$3,500" or "Gratuit"."""
+    if _FREE_RE.search(formatted or ""):
+        return 0
+    m = re.search(r"\d[\d\s\u00a0\u202f,.]*", formatted or "")
+    if not m:
+        return None
+    number = re.sub(r"[\s\u00a0\u202f]", "", m.group(0)).rstrip(".,")
+    number = re.sub(r"[.,]\d{1,2}$", "", number)   # drop cents
+    return int(re.sub(r"[.,]", "", number))
 
 
 # --------------------------------------------------------------------------- #

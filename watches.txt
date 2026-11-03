@@ -6,11 +6,12 @@
 # a listing matching any of them sends a single alert.
 # Words starting with "-" skip listings that mention them (plural included):
 # "spiderman -costume" ignores "Costumes Spider-Man".
+# "max:4000" skips listings priced over $4000 (listings with no price still alert).
 #
 # Advanced: "search | regex" sets exactly what counts as a match, and a third
 # field "maybe" adds "Maybe" alerts for VW/Audi/Mercedes/Skoda wheels.
 5x112 | (?<!\d)5\s*[x×*]\s*112(?!\d) | maybe
 simpsons
-spiderman / spider-man / spidey -costume -chandail -vêtement
-audi a3
+spiderman / spider-man / spidey -costume -chandail -vêtement -comic
+audi a3 max:4000
 mag audi / mags audi / roue audi / roues audi
