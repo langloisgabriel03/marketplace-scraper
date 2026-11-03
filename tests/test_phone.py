@@ -155,6 +155,7 @@ def test_parse_watches_and_keyword_matching():
     assert [w.query for w in watches] == ["5x112", "simpsons", "spiderman", "audi a3", "mag audi"]
     assert watches[3].max_price == 4000 and watches[3].queries == ["audi a3"]
     assert watches[0].pattern and watches[0].maybe and not watches[1].maybe
+    assert watches[0].queries == ["5x112"] and watches[0].max_price == 4000
     simpsons, spiderman, a3, audi_wheels = watches[1:]
     assert audi_wheels.queries == ["mag audi", "mags audi", "roue audi", "roues audi"]
     assert spiderman.queries == ["spiderman", "spider-man", "spidey"]
@@ -280,3 +281,19 @@ def test_max_price_filters_search_and_skips_lookup(tmp_path, monkeypatch):
     pw.run_once(args_for(tmp_path, "--notify-all"), [watch], make_session(pages))
     assert sent == ["NEW 888"]
     assert "maxPrice=4000" in urls[0] and not any("/item/777" in u for u in urls)
+
+
+def test_max_price_also_blocks_maybe_alerts(tmp_path, monkeypatch):
+    sent = capture(monkeypatch)
+    blob = {"data": {"marketplace_search": {"feed_units": {"edges": [
+        {"node": {"listing": {"id": "901", "marketplace_listing_title": "VW Golf 2019 5x112",
+                              "listing_price": {"formatted_amount": "CA$18,500"}}}},
+        {"node": {"listing": {"id": "902", "marketplace_listing_title": "Mags Audi 18",
+                              "listing_price": {"formatted_amount": "CA$9,000"}}}},
+        {"node": {"listing": {"id": "903", "marketplace_listing_title": "Mags 5x112 17po",
+                              "listing_price": {"formatted_amount": "600 $"}}}},
+    ]}}}}
+    watch = pw.parse_watches(r"5x112 max:4000 | (?<!\d)5\s*[x×*]\s*112(?!\d) | maybe")[0]
+    pw.run_once(args_for(tmp_path, "--notify-all"), [watch],
+                make_session(lambda url: FakeResponse(html_with(blob))))
+    assert sent == ["NEW 903"]

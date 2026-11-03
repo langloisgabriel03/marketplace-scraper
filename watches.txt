@@ -11,7 +11,7 @@
 #
 # Advanced: "search | regex" sets exactly what counts as a match, and a third
 # field "maybe" adds "Maybe" alerts for VW/Audi/Mercedes/Skoda wheels.
-5x112 | (?<!\d)5\s*[x×*]\s*112(?!\d) | maybe
+5x112 max:4000 | (?<!\d)5\s*[x×*]\s*112(?!\d) | maybe
 simpsons
 spiderman / spider-man / spidey -costume -chandail -vêtement -comic -déguisement
 audi a3 max:4000
