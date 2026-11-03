@@ -158,7 +158,7 @@ def test_parse_watches_and_keyword_matching():
     simpsons, spiderman, a3, audi_wheels = watches[1:]
     assert audi_wheels.queries == ["mag audi", "mags audi", "roue audi", "roues audi"]
     assert spiderman.queries == ["spiderman", "spider-man", "spidey"]
-    assert spiderman.excludes == ("costume", "chandail", "vêtement", "comic")
+    assert spiderman.excludes == ("costume", "chandail", "vêtement", "comic", "déguisement")
 
     def L(title, description=""):
         return scraper.Listing(id="1", title=title, description=description)
@@ -177,6 +177,8 @@ def test_parse_watches_and_keyword_matching():
     assert a3.matches(L("Mags", "Viennent de mon Audi A3"))
     assert not a3.matches(L("Audi A4 2015"))
     assert not spiderman.matches(L("Amazing Spider-Man comics #300"))
+    assert not spiderman.matches(L("Déguisements Spider-Man 4-6 ans"))
+    assert not spiderman.matches(L("Spiderman", "deguisement taille 8"))
 
     def priced(title, price):
         return scraper.Listing(id="1", title=title, price=price)
