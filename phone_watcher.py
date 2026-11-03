@@ -257,8 +257,8 @@ class Watch:
 
     def excluded(self, listing: Listing) -> str:
         """The excluded word found in the listing, if any (same leniency as matching)."""
-        text = _normalize(f"{listing.title} {listing.description}")
-        return next((w for w in self.excludes if _stem(_normalize(w)) in text), "")
+        text = _listing_words(listing)
+        return next((w for w in self.excludes if _has_word(w, text)), "")
 
     def too_expensive(self, listing: Listing) -> bool:
         price = scraper.price_value(listing.price)
@@ -269,11 +269,8 @@ class Watch:
             return False
         if self.pattern:
             return matches(listing, self.pattern)
-        text = _normalize(f"{listing.title} {listing.description}")
-        return any(
-            all(_stem(w) in text for w in _normalize(q, keep_spaces=True).split())
-            for q in self.queries
-        )
+        text = _listing_words(listing)
+        return any(all(_has_word(w, text) for w in q.split()) for q in self.queries)
 
 
 def slugify(query: str) -> str:
@@ -293,6 +290,24 @@ def _normalize(text: str, keep_spaces: bool = False) -> str:
 
 def _stem(word: str) -> str:
     return word[:-1] if len(word) > 4 and word.endswith("s") else word
+
+
+def _listing_words(listing: Listing) -> str:
+    """Title + description as " word word ": no case or accents, "Spider-Man" -> "spiderman"."""
+    text = re.sub(r"(?<=[a-z0-9])-(?=[a-z])", "", _strip_accents(
+        f"{listing.title} {listing.description}".lower()))
+    return " " + re.sub(r"[^a-z0-9]+", " ", text) + " "
+
+
+def _has_word(word: str, text: str) -> bool:
+    """Whole word, plural "s" allowed ("mag" finds "mags", not "magnifique"). Long words
+    also match across spaces, so "spiderman" finds "spider man"."""
+    w = _stem(_normalize(word))
+    if not w:
+        return False
+    if re.search(rf"(?<![a-z0-9]){re.escape(w)}s?(?![a-z0-9])", text):
+        return True
+    return len(w) >= 6 and w in text.replace(" ", "")
 
 
 def parse_watches(text: str) -> list[Watch]:

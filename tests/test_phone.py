@@ -189,6 +189,10 @@ def test_parse_watches_and_keyword_matching():
     assert a3.matches(priced("Audi A3 pièces", ""))        # no price shown: still alert
     assert audi_wheels.matches(L("4 roues Audi A4")) and audi_wheels.matches(L("Mag Audi Q5"))
     assert not audi_wheels.matches(L("Mags VW 17"))
+    assert not audi_wheels.matches(L("2021 Audi A6", "Magnifique, aucun accident"))
+    assert not audi_wheels.matches(priced("2021 Audi A6", "CA$37,997"))
+    assert audi_wheels.matches(priced("Mags Audi 19 pouces", "CA$1,200"))
+    assert audi_wheels.max_price == 4000
     assert [pw.slugify(q) for q in spiderman.queries] == [
         "spiderman", "spider-man", "spidey"]
 
