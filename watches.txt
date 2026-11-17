@@ -16,3 +16,4 @@ simpsons
 spiderman / spider-man / spidey -costume -chandail -vêtement -comic -déguisement
 audi a3 max:4000
 mag audi / mags audi / roue audi / roues audi max:4000
+hot toys / hottoys / hot toy / hottoy | \bhot[\s\-]*toys?\b
